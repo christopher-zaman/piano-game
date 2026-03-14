@@ -297,6 +297,7 @@
       align-items: flex-end;
       justify-content: center;
       transform: translateY(0);
+      transform-origin: center bottom;
     }
 
     .player .body img {
@@ -307,6 +308,7 @@
       pointer-events: none;
       filter: drop-shadow(0 8px 10px rgba(0,0,0,.25));
       image-rendering: auto;
+      transform-origin: center bottom;
     }
 
     .landing-marker {
@@ -324,7 +326,19 @@
     }
 
     .player.running .body {
-      animation: bob .22s linear infinite alternate;
+      animation: runBounce .16s linear infinite alternate;
+    }
+
+    .player.running .shadow {
+      animation: runShadow .16s linear infinite alternate;
+    }
+
+    .player.running.running-left .body img {
+      animation: runSwingLeft .16s linear infinite alternate;
+    }
+
+    .player.running.running-right .body img {
+      animation: runSwingRight .16s linear infinite alternate;
     }
 
     .player.jumping {
@@ -339,9 +353,24 @@
       animation: shadowArc 0.48s ease-in-out forwards;
     }
 
-    @keyframes bob {
-      from { transform: translateY(0px) rotate(-1deg); }
-      to { transform: translateY(-4px) rotate(1deg); }
+    @keyframes runBounce {
+      from { transform: translateY(0px); }
+      to   { transform: translateY(-5px); }
+    }
+
+    @keyframes runSwingLeft {
+      from { transform: rotate(-5deg) scaleX(-1) scaleY(0.98); }
+      to   { transform: rotate(2deg) scaleX(-1) scaleY(1.02); }
+    }
+
+    @keyframes runSwingRight {
+      from { transform: rotate(-2deg) scaleY(0.98); }
+      to   { transform: rotate(5deg) scaleY(1.02); }
+    }
+
+    @keyframes runShadow {
+      from { transform: translateX(-50%) scale(1); opacity: .35; }
+      to   { transform: translateX(-50%) scale(.9); opacity: .22; }
     }
 
     @keyframes playerJump {
@@ -699,7 +728,8 @@
       acceptedWindow: false,
       chartTimer: null,
       audioReady: false,
-      mediaUnlocked: false
+      mediaUnlocked: false,
+      facing: "right"
     };
 
     const keyMap = new Map();
@@ -1026,7 +1056,20 @@
 
     function runAnimationFlag() {
       const moving = state.runningLeft || state.runningRight;
+
+      if (state.runningLeft) state.facing = "left";
+      if (state.runningRight) state.facing = "right";
+
       playerEl.classList.toggle("running", moving && !state.isJumping);
+      playerEl.classList.toggle("running-left", state.runningLeft && !state.isJumping);
+      playerEl.classList.toggle("running-right", state.runningRight && !state.isJumping);
+
+      const img = playerEl.querySelector(".body img");
+      if (!moving && !state.isJumping && img) {
+        img.style.transform = state.facing === "left" ? "scaleX(-1)" : "scaleX(1)";
+      } else if (moving && img) {
+        img.style.transform = "";
+      }
     }
 
     function gameLoop() {
@@ -1043,7 +1086,7 @@
       ensureAudio();
       state.isJumping = true;
       playerEl.classList.add("jumping");
-      playerEl.classList.remove("running");
+      playerEl.classList.remove("running", "running-left", "running-right");
 
       setTimeout(() => {
         playerEl.classList.remove("jumping");
@@ -1167,8 +1210,12 @@
       setStatus("Ready");
       if (updateMode) setMode("idle");
       state.playerX = 80;
+      state.facing = "right";
       clampPlayer();
       updateStep();
+
+      const img = playerEl.querySelector(".body img");
+      if (img) img.style.transform = "scaleX(1)";
     }
 
     function handleJumpAction() {
