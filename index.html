@@ -399,33 +399,33 @@
     }
 
     .touch-controls {
-  display: none;
-  gap: 10px;
-  padding: 0 20px 20px;
-  position: relative;
-  z-index: 50;
-  pointer-events: auto;
-}
+      display: none;
+      gap: 10px;
+      padding: 0 20px 20px;
+      position: relative;
+      z-index: 50;
+      pointer-events: auto;
+    }
 
-.touch-btn {
-  flex: 1 1 0;
-  min-height: 56px;
-  border: 0;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.08);
-  color: #fff;
-  font-size: 1.1rem;
-  font-weight: 800;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  pointer-events: auto;
-  cursor: pointer;
-}
+    .touch-btn {
+      flex: 1 1 0;
+      min-height: 56px;
+      border: 0;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 800;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      pointer-events: auto;
+      cursor: pointer;
+    }
 
-.touch-btn.jump {
-  background: linear-gradient(180deg, #34d399 0%, #10b981 100%);
-  color: #052e16;
-}
+    .touch-btn.jump {
+      background: linear-gradient(180deg, #34d399 0%, #10b981 100%);
+      color: #052e16;
+    }
 
     @media (max-width: 900px) {
       .hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -535,13 +535,13 @@
       }
 
       .touch-controls {
-  display: flex;
-  position: sticky;
-  bottom: 0;
-  z-index: 100;
-  background: rgba(15, 23, 42, 0.95);
-  padding: 12px 14px 14px;
-}
+        display: flex;
+        position: sticky;
+        bottom: 0;
+        z-index: 100;
+        background: rgba(15, 23, 42, 0.95);
+        padding: 12px 14px 14px;
+      }
     }
   </style>
 </head>
@@ -712,33 +712,32 @@
     }
 
     function ensureAudio() {
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  }
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
 
-  if (audioContext.state === "suspended") {
-    audioContext.resume();
-  }
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
 
-  state.audioReady = true;
-}
+      state.audioReady = true;
+    }
 
-function unlockAudio() {
-  ensureAudio();
+    function unlockAudio() {
+      ensureAudio();
+      if (!audioContext) return;
 
-  if (!audioContext) return;
+      const buffer = audioContext.createBuffer(1, 1, 22050);
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
 
-  const buffer = audioContext.createBuffer(1, 1, 22050);
-  const source = audioContext.createBufferSource();
-  source.buffer = buffer;
-  source.connect(audioContext.destination);
-
-  try {
-    source.start(0);
-  } catch (err) {
-    console.log("Audio unlock start error:", err);
-  }
-}
+      try {
+        source.start(0);
+      } catch (err) {
+        console.log("Audio unlock start error:", err);
+      }
+    }
 
     function playNote(note, duration = 0.55) {
       ensureAudio();
@@ -1145,75 +1144,55 @@ function unlockAudio() {
     });
 
     function bindHoldButton(button, onStart, onEnd) {
-  button.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    unlockAudio();
-    onStart();
-  });
-
-  button.addEventListener("pointerup", (e) => {
-    e.preventDefault();
-    onEnd();
-  });
-
-  button.addEventListener("pointercancel", (e) => {
-    e.preventDefault();
-    onEnd();
-  });
-
-  button.addEventListener("pointerleave", (e) => {
-    e.preventDefault();
-    onEnd();
-  });
-}
-
-      button.addEventListener("touchstart", (e) => {
+      button.addEventListener("pointerdown", (e) => {
         e.preventDefault();
-        onStart();
-      }, { passive: false });
-
-      button.addEventListener("touchend", stop, { passive: false });
-      button.addEventListener("touchcancel", stop, { passive: false });
-
-      button.addEventListener("mousedown", (e) => {
-        e.preventDefault();
+        unlockAudio();
         onStart();
       });
 
-      button.addEventListener("mouseup", stop);
-      button.addEventListener("mouseleave", stop);
+      button.addEventListener("pointerup", (e) => {
+        e.preventDefault();
+        onEnd();
+      });
+
+      button.addEventListener("pointercancel", (e) => {
+        e.preventDefault();
+        onEnd();
+      });
+
+      button.addEventListener("pointerleave", (e) => {
+        e.preventDefault();
+        onEnd();
+      });
     }
 
     startBtn.addEventListener("click", () => {
-  unlockAudio();
-  startGuidedMode();
-});
+      unlockAudio();
+      startGuidedMode();
+    });
 
-manualBtn.addEventListener("click", () => {
-  unlockAudio();
-  startManualGuidedMode();
-});
+    manualBtn.addEventListener("click", () => {
+      unlockAudio();
+      startManualGuidedMode();
+    });
 
-practiceBtn.addEventListener("click", () => {
-  unlockAudio();
-  startPracticeMode();
-});
+    practiceBtn.addEventListener("click", () => {
+      unlockAudio();
+      startPracticeMode();
+    });
 
-resetBtn.addEventListener("click", () => resetGame(true));
+    resetBtn.addEventListener("click", () => resetGame(true));
 
     bindHoldButton(leftBtn, () => { state.runningLeft = true; }, () => { state.runningLeft = false; });
     bindHoldButton(rightBtn, () => { state.runningRight = true; }, () => { state.runningRight = false; });
 
-   jumpBtn.addEventListener("touchstart", (e) => {
-  e.preventDefault();
-  handleJumpAction();
-}, { passive: false });
+    jumpBtn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      unlockAudio();
+      handleJumpAction();
+    });
 
-jumpBtn.addEventListener("pointerdown", (e) => {
-  e.preventDefault();
-  unlockAudio();
-  handleJumpAction();
-});
+    document.addEventListener("pointerdown", unlockAudio, { once: true });
 
     window.addEventListener("resize", () => {
       const note = state.targetNote;
