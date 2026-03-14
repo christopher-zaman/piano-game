@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Piano Jump Prototype</title>
+  <style>
+    :root {
+      --bg: #111827;
+      --panel: #0f172a;
+      --lane: #1f2937;
+      --mint: #98f5d5;
+      --mint-deep: #6ee7b7;
+      --white-key: #f8fafc;
+      --black-key: #111111;
+      --text: #e5e7eb;
+      --yellow: #fde047;
+      --danger: #f87171;
+      --good: #4ade80;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      touch-action: manipulation;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(110,231,183,.12), transparent 35%),
+        linear-gradient(180deg, #020617 0%, var(--bg) 100%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(1200px, 100%);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 25px 70px rgba(0,0,0,0.45);
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 20px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .title-wrap h1 {
+      margin: 0;
+      font-size: clamp(1.2rem, 2vw, 1.9rem);
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      font-size: 0.95rem;
+      color: #cbd5e1;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .15s ease, opacity .15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(1px); }
+
+    .primary { background: var(--mint-deep); color: #052e16; }
+    .secondary { background: #334155; color: white; }
+    .ghost { background: rgba(255,255,255,0.08); color: white; }
+
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      padding: 14px 20px 0;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+
+    .value {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .stage {
+      position: relative;
+      padding: 18px 20px 24px;
+    }
+
+    .game {
+      position: relative;
+      height: 600px;
+      border-radius: 24px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(110,231,183,0.18) 0%, rgba(17,24,39,0) 35%),
+        linear-gradient(180deg, #0b1120 0%, #132238 100%);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .backdrop {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 20%),
+        radial-gradient(circle at 75% 15%, rgba(255,255,255,0.06), transparent 20%),
+        linear-gradient(180deg, rgba(255,255,255,0.02), transparent 25%);
+    }
+
+    .lane {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 170px;
+      height: 110px;
+      background: linear-gradient(180deg, rgba(152,245,213,.08), rgba(152,245,213,.16));
+      border-top: 2px solid rgba(255,255,255,0.07);
+      border-bottom: 2px solid rgba(255,255,255,0.05);
+    }
+
+    .lane::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: repeating-linear-gradient(
+        90deg,
+        rgba(255,255,255,0.04) 0 30px,
+        transparent 30px 60px
+      );
+      opacity: .35;
+    }
+
+    .keybed {
+      position: absolute;
+      left: 40px;
+      right: 40px;
+      bottom: 20px;
+      height: 250px;
+    }
+
+    .white-keys {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      gap: 6px;
+    }
+
+    .white-key {
+      position: relative;
+      flex: 1 1 0;
+      background: linear-gradient(180deg, #ffffff 0%, #eef2f7 100%);
+      border: 2px solid #dbe4ec;
+      border-radius: 0 0 16px 16px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding-bottom: 18px;
+      color: #0f172a;
+      font-weight: 800;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+      user-select: none;
+    }
+
+    .white-key .note-label {
+      font-size: 1rem;
+      opacity: .8;
+      pointer-events: none;
+    }
+
+    .black-layer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 145px;
+      pointer-events: none;
+    }
+
+    .black-key {
+      position: absolute;
+      width: 8%;
+      height: 145px;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, #232323 0%, #050505 100%);
+      border-radius: 0 0 12px 12px;
+      border: 2px solid #0b0b0b;
+      box-shadow: 0 10px 18px rgba(0,0,0,.3);
+      color: #f8fafc;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 14px;
+      font-size: .9rem;
+      font-weight: 700;
+      pointer-events: auto;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+      user-select: none;
+    }
+
+    .key.target {
+      box-shadow: 0 0 0 3px rgba(253,224,71,.5), 0 0 25px rgba(253,224,71,.7);
+      background: linear-gradient(180deg, #fff7b1 0%, #fde047 100%);
+      transform: translateY(-8px);
+      z-index: 3;
+    }
+
+    .black-key.target {
+      background: linear-gradient(180deg, #5b4700 0%, #f59e0b 100%);
+      transform: translateX(-50%) translateY(-8px);
+    }
+
+    .key.active,
+    .white-key.active {
+      background: linear-gradient(180deg, #bbf7d0 0%, #4ade80 100%);
+      box-shadow: 0 0 0 3px rgba(74,222,128,.35), 0 0 20px rgba(74,222,128,.5);
+    }
+
+    .black-key.active {
+      background: linear-gradient(180deg, #166534 0%, #4ade80 100%);
+      transform: translateX(-50%) translateY(-4px);
+    }
+
+    .white-key.missed,
+    .black-key.missed {
+      background: linear-gradient(180deg, #fecaca 0%, #f87171 100%);
+      box-shadow: 0 0 0 3px rgba(248,113,113,.3), 0 0 18px rgba(248,113,113,.4);
+    }
+
+    .player {
+      position: absolute;
+      left: 80px;
+      width: 64px;
+      height: 132px;
+      bottom: 262px;
+      transition: left .18s linear;
+      z-index: 8;
+    }
+
+    .player .shadow {
+      position: absolute;
+      width: 46px;
+      height: 10px;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%) scale(1);
+      background: rgba(0,0,0,.35);
+      border-radius: 999px;
+      filter: blur(2px);
+      transition: transform .12s ease;
+    }
+
+    .player .body {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      transform: translateY(0);
+    }
+
+    .player .body img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+      filter: drop-shadow(0 8px 10px rgba(0,0,0,.25));
+      image-rendering: auto;
+    }
+
+    .landing-marker {
+      position: absolute;
+      bottom: -2px;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #ff4d4f;
+      border: 1px solid white;
+      transform: translateX(-50%);
+      z-index: 10;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+    .player.running .body {
+      animation: bob .22s linear infinite alternate;
+    }
+
+    .player.jumping {
+      animation: playerJump 0.48s ease-in-out forwards;
+    }
+
+    .player.jumping .body {
+      animation: spriteJump 0.48s ease-in-out forwards;
+    }
+
+    .player.jumping .shadow {
+      animation: shadowArc 0.48s ease-in-out forwards;
+    }
+
+    @keyframes bob {
+      from { transform: translateY(0px) rotate(-1deg); }
+      to { transform: translateY(-4px) rotate(1deg); }
+    }
+
+    @keyframes playerJump {
+      0% { transform: translateY(0); }
+      40% { transform: translateY(-120px); }
+      60% { transform: translateY(-120px); }
+      100% { transform: translateY(0); }
+    }
+
+    @keyframes spriteJump {
+      0% { transform: translateY(0) scale(1); }
+      40% { transform: translateY(-6px) scale(1.01); }
+      60% { transform: translateY(-6px) scale(1.01); }
+      100% { transform: translateY(0) scale(1); }
+    }
+
+    @keyframes shadowArc {
+      0%   { transform: translateX(-50%) scale(1); opacity: .35; }
+      50%  { transform: translateX(-50%) scale(.7); opacity: .18; }
+      100% { transform: translateX(-50%) scale(1); opacity: .35; }
+    }
+
+    .controls-note {
+      padding: 12px 20px 20px;
+      color: #cbd5e1;
+      font-size: .94rem;
+      line-height: 1.5;
+    }
+
+    .kbd {
+      display: inline-block;
+      min-width: 28px;
+      text-align: center;
+      padding: 2px 8px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.1);
+      font-weight: 700;
+      margin: 0 2px;
+    }
+
+    .progress {
+      height: 10px;
+      background: rgba(255,255,255,.08);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--mint), var(--yellow));
+      transition: width .18s linear;
+    }
+
+    .touch-controls {
+  display: none;
+  gap: 10px;
+  padding: 0 20px 20px;
+  position: relative;
+  z-index: 50;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  flex: 1 1 0;
+  min-height: 56px;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 800;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.touch-btn.jump {
+  background: linear-gradient(180deg, #34d399 0%, #10b981 100%);
+  color: #052e16;
+}
+
+    @media (max-width: 900px) {
+      .hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .game { height: 520px; }
+      .player { width: 54px; height: 112px; }
+      .keybed { left: 18px; right: 18px; }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 10px;
+        align-items: flex-start;
+      }
+
+      .app {
+        border-radius: 18px;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        padding: 14px;
+      }
+
+      .controls {
+        gap: 8px;
+      }
+
+      .controls button {
+        padding: 10px 12px;
+        font-size: 0.82rem;
+      }
+
+      .hud {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 10px 14px 0;
+      }
+
+      .card {
+        padding: 10px 12px;
+        border-radius: 14px;
+      }
+
+      .value {
+        font-size: 1rem;
+      }
+
+      .stage {
+        padding: 12px;
+      }
+
+      .game {
+        height: 430px;
+        border-radius: 18px;
+      }
+
+      .lane {
+        bottom: 122px;
+        height: 84px;
+      }
+
+      .keybed {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        height: 180px;
+      }
+
+      .white-keys {
+        gap: 3px;
+      }
+
+      .white-key {
+        border-radius: 0 0 12px 12px;
+        padding-bottom: 10px;
+      }
+
+      .white-key .note-label,
+      .black-key {
+        font-size: .68rem;
+      }
+
+      .black-layer {
+        height: 102px;
+      }
+
+      .black-key {
+        height: 102px;
+        width: 9%;
+        padding-bottom: 8px;
+      }
+
+      .player {
+        width: 42px;
+        height: 96px;
+        bottom: 188px;
+      }
+
+      .player .shadow {
+        width: 30px;
+        height: 8px;
+      }
+
+      .controls-note {
+        font-size: .86rem;
+        padding: 10px 14px 14px;
+      }
+
+      .touch-controls {
+  display: flex;
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.95);
+  padding: 12px 14px 14px;
+}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="title-wrap">
+        <h1>Piano Jump: Guided Melody Prototype</h1>
+        <div class="subtitle">Predetermined target keys guide the player through a simple “Runaway”-style note pattern.</div>
+      </div>
+
+      <div class="controls">
+        <button class="primary" id="startBtn">Start Auto Guided</button>
+        <button class="secondary" id="manualBtn">Start Manual Guided</button>
+        <button class="secondary" id="practiceBtn">Practice Mode</button>
+        <button class="ghost" id="resetBtn">Reset</button>
+      </div>
+    </div>
+
+    <div class="hud">
+      <div class="card">
+        <div class="label">Mode</div>
+        <div class="value" id="modeLabel">Idle</div>
+      </div>
+      <div class="card">
+        <div class="label">Target Note</div>
+        <div class="value" id="targetLabel">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Step</div>
+        <div class="value" id="stepLabel">0 / 0</div>
+      </div>
+      <div class="card">
+        <div class="label">Status</div>
+        <div class="value" id="statusLabel">Ready</div>
+        <div class="progress">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="game" id="game">
+        <div class="backdrop"></div>
+        <div class="lane"></div>
+
+        <div class="player" id="player" aria-label="player character">
+          <div class="body">
+            <img alt="character sprite" src="character.webp" />
+          </div>
+          <div class="shadow"></div>
+          <div class="landing-marker" id="landingMarker"></div>
+        </div>
+
+        <div class="keybed" id="keybed">
+          <div class="white-keys" id="whiteKeys"></div>
+          <div class="black-layer" id="blackKeys"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls-note">
+      Use <span class="kbd">←</span> and <span class="kbd">→</span> to run.
+      Press <span class="kbd">Space</span> to jump.
+      Auto Guided snaps the character to the highlighted key before jumping.
+      Manual Guided makes you move to the highlighted key yourself.
+    </div>
+
+    <div class="touch-controls">
+      <button class="touch-btn" id="leftBtn">◀</button>
+      <button class="touch-btn jump" id="jumpBtn">JUMP</button>
+      <button class="touch-btn" id="rightBtn">▶</button>
+    </div>
+  </div>
+
+  <script>
+    const FOOT_OFFSET_RATIO = 0.38;
+
+    const whiteNotes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5"];
+
+    const blackNotes = [
+      { note: "C#4", afterWhiteIndex: 0 },
+      { note: "D#4", afterWhiteIndex: 1 },
+      { note: "F#4", afterWhiteIndex: 3 },
+      { note: "G#4", afterWhiteIndex: 4 },
+      { note: "A#4", afterWhiteIndex: 5 },
+      { note: "C#5", afterWhiteIndex: 7 },
+      { note: "D#5", afterWhiteIndex: 8 },
+      { note: "F#5", afterWhiteIndex: 10 }
+    ];
+
+    const runawayChart = [
+      { note: "E5" }, { note: "E5" }, { note: "E5" },
+      { note: "D#5" }, { note: "D#5" }, { note: "D#5" }, { note: "D#5" },
+      { note: "C#5" }, { note: "C#5" }, { note: "C#5" },
+      { note: "A4" }, { note: "A4" }, { note: "G#4" },
+      { note: "E5" }, { note: "E5" }, { note: "B4" },
+      { note: "E5" }, { note: "E5" }, { note: "E5" },
+      { note: "D#5" }, { note: "D#5" }, { note: "D#5" }, { note: "D#5" },
+      { note: "C#5" }, { note: "C#5" }, { note: "C#5" }, { note: "C#5" },
+      { note: "A4" }, { note: "A4" }, { note: "G#4" },
+      { note: "E5" }, { note: "E5" }
+    ];
+
+    const winSequence = [
+      { note: "G#4", duration: 0.26, gap: 130 },
+      { note: "G#4", duration: 0.26, gap: 130 },
+      { note: "E5", duration: 0.26, gap: 130 },
+      { note: "B4", duration: 0.26, gap: 130 },
+      { note: "G#4", duration: 0.26, gap: 130 },
+      { note: "G#4", duration: 0.26, gap: 130 },
+      { note: "E5", duration: 0.26, gap: 130 },
+      { note: "B4", duration: 0.26, gap: 130 },
+      { note: "G#4", duration: 0.26, gap: 130 },
+      { note: "G#4", duration: 0.32, gap: 180 }
+    ];
+
+    const noteFreq = {
+      "C4": 261.63, "C#4": 277.18, "D4": 293.66, "D#4": 311.13, "E4": 329.63,
+      "F4": 349.23, "F#4": 369.99, "G4": 392.00, "G#4": 415.30, "A4": 440.00,
+      "A#4": 466.16, "B4": 493.88, "C5": 523.25, "C#5": 554.37, "D5": 587.33,
+      "D#5": 622.25, "E5": 659.25, "F5": 698.46, "F#5": 739.99, "G5": 783.99
+    };
+
+    const whiteKeysEl = document.getElementById("whiteKeys");
+    const blackKeysEl = document.getElementById("blackKeys");
+    const keybedEl = document.getElementById("keybed");
+    const playerEl = document.getElementById("player");
+    const landingMarkerEl = document.getElementById("landingMarker");
+
+    const modeLabel = document.getElementById("modeLabel");
+    const targetLabel = document.getElementById("targetLabel");
+    const stepLabel = document.getElementById("stepLabel");
+    const statusLabel = document.getElementById("statusLabel");
+    const progressBar = document.getElementById("progressBar");
+
+    const startBtn = document.getElementById("startBtn");
+    const manualBtn = document.getElementById("manualBtn");
+    const practiceBtn = document.getElementById("practiceBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const leftBtn = document.getElementById("leftBtn");
+    const rightBtn = document.getElementById("rightBtn");
+    const jumpBtn = document.getElementById("jumpBtn");
+
+    const state = {
+      mode: "idle",
+      playerX: 80,
+      playerSpeed: 9,
+      runningLeft: false,
+      runningRight: false,
+      isJumping: false,
+      targetNote: null,
+      currentStep: 0,
+      acceptedWindow: false,
+      chartTimer: null,
+      audioReady: false
+    };
+
+    const keyMap = new Map();
+    let audioContext;
+
+    function updateLandingMarker() {
+      landingMarkerEl.style.left = `${FOOT_OFFSET_RATIO * playerEl.offsetWidth}px`;
+    }
+
+    function getPlayerFootX() {
+      return state.playerX + (playerEl.offsetWidth * FOOT_OFFSET_RATIO);
+    }
+
+    function ensureAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+      state.audioReady = true;
+    }
+
+    function playNote(note, duration = 0.55) {
+      ensureAudio();
+      const freq = noteFreq[note];
+      if (!freq || !audioContext) return;
+
+      const now = audioContext.currentTime;
+      const osc1 = audioContext.createOscillator();
+      const osc2 = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const lowpass = audioContext.createBiquadFilter();
+
+      osc1.type = "triangle";
+      osc2.type = "sine";
+      osc1.frequency.setValueAtTime(freq, now);
+      osc2.frequency.setValueAtTime(freq * 2, now);
+
+      lowpass.type = "lowpass";
+      lowpass.frequency.setValueAtTime(2200, now);
+      lowpass.Q.setValueAtTime(1, now);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.28, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      osc1.connect(lowpass);
+      osc2.connect(lowpass);
+      lowpass.connect(gain);
+      gain.connect(audioContext.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + duration + 0.05);
+      osc2.stop(now + duration + 0.05);
+    }
+
+    function playWinSequence() {
+      ensureAudio();
+      let delay = 0;
+
+      winSequence.forEach((step, index) => {
+        window.setTimeout(() => {
+          playNote(step.note, step.duration);
+          const el = keyMap.get(step.note);
+          if (el) {
+            el.classList.add("active");
+            window.setTimeout(() => el.classList.remove("active"), Math.max(180, step.gap));
+          }
+          if (index === winSequence.length - 1) {
+            setStatus("You win! Encore riff played.");
+          }
+        }, delay);
+
+        delay += step.gap;
+      });
+    }
+
+    function buildKeys() {
+      whiteKeysEl.innerHTML = "";
+      blackKeysEl.innerHTML = "";
+      keyMap.clear();
+
+      whiteNotes.forEach((note) => {
+        const key = document.createElement("div");
+        key.className = "white-key key";
+        key.dataset.note = note;
+        key.innerHTML = `<span class="note-label">${note}</span>`;
+        whiteKeysEl.appendChild(key);
+        keyMap.set(note, key);
+        key.addEventListener("click", () => handleKeySelection(note));
+      });
+
+      requestAnimationFrame(() => {
+        const whiteKeyEls = [...document.querySelectorAll(".white-key")];
+
+        blackNotes.forEach(({ note, afterWhiteIndex }) => {
+          const anchor = whiteKeyEls[afterWhiteIndex];
+          const next = whiteKeyEls[afterWhiteIndex + 1];
+          if (!anchor || !next) return;
+
+          const leftCenter = anchor.offsetLeft + anchor.offsetWidth;
+          const gapCenter = leftCenter + (next.offsetLeft - leftCenter) / 2;
+
+          const black = document.createElement("div");
+          black.className = "black-key key";
+          black.dataset.note = note;
+          black.textContent = note;
+          black.style.left = `${gapCenter}px`;
+
+          blackKeysEl.appendChild(black);
+          keyMap.set(note, black);
+          black.addEventListener("click", () => handleKeySelection(note));
+        });
+      });
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      if (mode === "guided") modeLabel.textContent = "Auto Guided";
+      else if (mode === "manual-guided") modeLabel.textContent = "Manual Guided";
+      else if (mode === "practice") modeLabel.textContent = "Practice";
+      else modeLabel.textContent = "Idle";
+    }
+
+    function setStatus(text) {
+      statusLabel.textContent = text;
+    }
+
+    function updateStep() {
+      const total =
+        state.mode === "guided" || state.mode === "manual-guided"
+          ? runawayChart.length
+          : 0;
+
+      if (!total) {
+        stepLabel.textContent = "—";
+        progressBar.style.width = "0%";
+        return;
+      }
+
+      stepLabel.textContent = `${state.currentStep} / ${total}`;
+      progressBar.style.width = `${(state.currentStep / total) * 100}%`;
+    }
+
+    function clearKeyStates() {
+      keyMap.forEach((el) => el.classList.remove("target", "active", "missed"));
+    }
+
+    function setTarget(note) {
+      state.targetNote = note;
+      targetLabel.textContent = note || "—";
+      clearKeyStates();
+      if (note && keyMap.has(note)) keyMap.get(note).classList.add("target");
+    }
+
+    function pulseActive(note, outcome = "active") {
+      const el = keyMap.get(note);
+      if (!el) return;
+      el.classList.remove("target");
+      el.classList.add(outcome);
+
+      setTimeout(() => {
+        el.classList.remove(outcome);
+        if (state.targetNote && keyMap.has(state.targetNote)) {
+          keyMap.get(state.targetNote).classList.add("target");
+        }
+      }, 260);
+    }
+
+    function clampPlayer() {
+      const minX = 20;
+      const maxX = keybedEl.clientWidth - playerEl.offsetWidth - 20;
+      state.playerX = Math.max(minX, Math.min(maxX, state.playerX));
+      playerEl.style.left = `${state.playerX}px`;
+    }
+
+    function getNoteBounds(note) {
+      const el = keyMap.get(note);
+      if (!el) return null;
+      return {
+        left: el.offsetLeft,
+        right: el.offsetLeft + el.offsetWidth,
+        center: el.offsetLeft + (el.offsetWidth / 2)
+      };
+    }
+
+    function getNoteCenterX(note) {
+      const bounds = getNoteBounds(note);
+      return bounds ? bounds.center : null;
+    }
+
+    function movePlayerToNote(note) {
+      const center = getNoteCenterX(note);
+      if (center == null) return;
+      state.playerX = center - (playerEl.offsetWidth * FOOT_OFFSET_RATIO);
+      clampPlayer();
+    }
+
+    function noteAtFootPosition() {
+      const footX = getPlayerFootX();
+      let foundBlack = null;
+      let foundWhite = null;
+
+      keyMap.forEach((el, note) => {
+        const left = el.offsetLeft;
+        const right = el.offsetLeft + el.offsetWidth;
+        if (footX >= left && footX <= right) {
+          if (el.classList.contains("black-key")) foundBlack = note;
+          else foundWhite = note;
+        }
+      });
+
+      return foundBlack || foundWhite || null;
+    }
+
+    function nearestNoteToFoot() {
+      const footX = getPlayerFootX();
+      let closest = null;
+      let closestDist = Infinity;
+
+      keyMap.forEach((el, note) => {
+        const center = el.offsetLeft + (el.offsetWidth / 2);
+        const dist = Math.abs(footX - center);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = note;
+        }
+      });
+
+      return closest;
+    }
+
+    function isPlayerOnTargetNote(note) {
+      const bounds = getNoteBounds(note);
+      if (!bounds) return false;
+      const footX = getPlayerFootX();
+      return footX >= bounds.left && footX <= bounds.right;
+    }
+
+    function runAnimationFlag() {
+      const moving = state.runningLeft || state.runningRight;
+      playerEl.classList.toggle("running", moving && !state.isJumping);
+    }
+
+    function gameLoop() {
+      if (state.runningLeft) state.playerX -= state.playerSpeed;
+      if (state.runningRight) state.playerX += state.playerSpeed;
+      clampPlayer();
+      runAnimationFlag();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function doJump(selectedNote) {
+      if (state.isJumping) return;
+
+      ensureAudio();
+      state.isJumping = true;
+      playerEl.classList.add("jumping");
+      playerEl.classList.remove("running");
+
+      setTimeout(() => {
+        playerEl.classList.remove("jumping");
+        state.isJumping = false;
+      }, 480);
+
+      setTimeout(() => {
+        playNote(selectedNote);
+        evaluateJump(selectedNote);
+      }, 230);
+    }
+
+    function evaluateJump(selectedNote) {
+      if (state.mode === "practice") {
+        pulseActive(selectedNote, "active");
+        setStatus(`Played ${selectedNote}`);
+        return;
+      }
+
+      if (state.mode !== "guided" && state.mode !== "manual-guided") return;
+
+      if (selectedNote === state.targetNote && state.acceptedWindow) {
+        pulseActive(selectedNote, "active");
+        state.acceptedWindow = false;
+        setStatus(`Correct: ${selectedNote}`);
+        advanceStep();
+      } else {
+        pulseActive(selectedNote, "missed");
+
+        if (state.targetNote && keyMap.has(state.targetNote)) {
+          keyMap.get(state.targetNote).classList.add("missed");
+          setTimeout(() => {
+            keyMap.get(state.targetNote)?.classList.remove("missed");
+            if (state.targetNote && keyMap.has(state.targetNote)) {
+              keyMap.get(state.targetNote).classList.add("target");
+            }
+          }, 300);
+        }
+
+        setStatus(`Missed: expected ${state.targetNote}`);
+      }
+    }
+
+    function handleKeySelection(note) {
+      if (state.mode === "practice") {
+        movePlayerToNote(note);
+        doJump(note);
+        return;
+      }
+
+      if (state.mode === "guided" && note === state.targetNote) {
+        movePlayerToNote(note);
+      }
+    }
+
+    function scheduleCurrentTarget() {
+      const step = runawayChart[state.currentStep];
+      if (!step) return finishGuidedMode();
+      setTarget(step.note);
+      setStatus(`Jump on ${step.note}`);
+      state.acceptedWindow = true;
+    }
+
+    function advanceStep() {
+      state.currentStep += 1;
+      updateStep();
+      if (state.currentStep >= runawayChart.length) return finishGuidedMode();
+      window.clearTimeout(state.chartTimer);
+      state.chartTimer = window.setTimeout(scheduleCurrentTarget, 260);
+    }
+
+    function finishGuidedMode() {
+      window.clearTimeout(state.chartTimer);
+      setTarget(null);
+      state.acceptedWindow = false;
+      setMode("idle");
+      setStatus("Sequence complete");
+      playWinSequence();
+    }
+
+    function startGuidedMode() {
+      ensureAudio();
+      resetGame(false);
+      setMode("guided");
+      state.currentStep = 0;
+      updateStep();
+      setStatus("Follow the highlighted keys");
+      scheduleCurrentTarget();
+    }
+
+    function startManualGuidedMode() {
+      ensureAudio();
+      resetGame(false);
+      setMode("manual-guided");
+      state.currentStep = 0;
+      updateStep();
+      setStatus("Run to the highlighted key, then jump");
+      scheduleCurrentTarget();
+    }
+
+    function startPracticeMode() {
+      ensureAudio();
+      resetGame(false);
+      setMode("practice");
+      setTarget("E5");
+      setStatus("Practice any key");
+      targetLabel.textContent = "Free Play";
+      stepLabel.textContent = "—";
+      progressBar.style.width = "0%";
+    }
+
+    function resetGame(updateMode = true) {
+      window.clearTimeout(state.chartTimer);
+      state.currentStep = 0;
+      state.acceptedWindow = false;
+      clearKeyStates();
+      state.targetNote = null;
+      targetLabel.textContent = "—";
+      setStatus("Ready");
+      if (updateMode) setMode("idle");
+      state.playerX = 80;
+      clampPlayer();
+      updateStep();
+    }
+
+    function handleJumpAction() {
+      if (state.mode === "guided") {
+        if (!state.targetNote) return;
+        movePlayerToNote(state.targetNote);
+        doJump(state.targetNote);
+      } else if (state.mode === "manual-guided") {
+        if (!state.targetNote) return;
+
+        if (isPlayerOnTargetNote(state.targetNote)) {
+          doJump(state.targetNote);
+        } else {
+          const selectedNote = noteAtFootPosition() || nearestNoteToFoot() || state.targetNote;
+          doJump(selectedNote);
+        }
+      } else if (state.mode === "practice") {
+        const note = noteAtFootPosition() || nearestNoteToFoot();
+        if (note) doJump(note);
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "ArrowLeft") {
+        state.runningLeft = true;
+        e.preventDefault();
+      }
+      if (e.code === "ArrowRight") {
+        state.runningRight = true;
+        e.preventDefault();
+      }
+      if (e.code === "Space") {
+        e.preventDefault();
+        handleJumpAction();
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.code === "ArrowLeft") state.runningLeft = false;
+      if (e.code === "ArrowRight") state.runningRight = false;
+    });
+
+    function bindHoldButton(button, onStart, onEnd) {
+      const stop = (e) => {
+        if (e) e.preventDefault();
+        onEnd();
+      };
+
+      button.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        onStart();
+      }, { passive: false });
+
+      button.addEventListener("touchend", stop, { passive: false });
+      button.addEventListener("touchcancel", stop, { passive: false });
+
+      button.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        onStart();
+      });
+
+      button.addEventListener("mouseup", stop);
+      button.addEventListener("mouseleave", stop);
+    }
+
+    startBtn.addEventListener("click", startGuidedMode);
+    manualBtn.addEventListener("click", startManualGuidedMode);
+    practiceBtn.addEventListener("click", startPracticeMode);
+    resetBtn.addEventListener("click", () => resetGame(true));
+
+    bindHoldButton(leftBtn, () => { state.runningLeft = true; }, () => { state.runningLeft = false; });
+    bindHoldButton(rightBtn, () => { state.runningRight = true; }, () => { state.runningRight = false; });
+
+   jumpBtn.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  handleJumpAction();
+}, { passive: false });
+
+jumpBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  handleJumpAction();
+});
+
+    window.addEventListener("resize", () => {
+      const note = state.targetNote;
+      buildKeys();
+      updateLandingMarker();
+      if (note) setTarget(note);
+      clampPlayer();
+    });
+
+    buildKeys();
+    updateLandingMarker();
+    resetGame(true);
+    gameLoop();
+  </script>
+</body>
+</html>
