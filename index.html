@@ -638,16 +638,25 @@
     ];
 
     const runawayChart = [
-      { note: "E5" }, { note: "E5" }, { note: "E5" },
-      { note: "D#5" }, { note: "D#5" }, { note: "D#5" }, { note: "D#5" },
-      { note: "C#5" }, { note: "C#5" }, { note: "C#5" },
-      { note: "A4" }, { note: "A4" }, { note: "G#4" },
-      { note: "E5" }, { note: "E5" }, { note: "B4" },
-      { note: "E5" }, { note: "E5" }, { note: "E5" },
-      { note: "D#5" }, { note: "D#5" }, { note: "D#5" }, { note: "D#5" },
-      { note: "C#5" }, { note: "C#5" }, { note: "C#5" }, { note: "C#5" },
-      { note: "A4" }, { note: "A4" }, { note: "G#4" },
-      { note: "E5" }, { note: "E5" }
+      { note: "E5", duration: .75 }, { note: "E5", duration: 0.58 }, { note: "E5", duration: 0.58 },
+
+      { note: "D#5", duration: 0.92 }, { note: "D#5", duration: 0.58 }, { note: "D#5", duration: 0.58 }, { note: "D#5", duration: 0.58 },
+
+      { note: "C#5", duration: 0.9 }, { note: "C#5", duration: 0.58 }, { note: "C#5", duration: 0.58 },
+
+      { note: "A4", duration: 0.72 }, { note: "A4", duration: 0.58 }, { note: "G#4", duration: 1.0 },
+
+      { note: "E5", duration: 1.2 }, { note: "E5", duration: 0.58 }, { note: "B4", duration: 0.82 },
+
+      { note: "E5", duration: 1.05 }, { note: "E5", duration: 0.58 }, { note: "E5", duration: 0.58 },
+
+      { note: "D#5", duration: 0.72 }, { note: "D#5", duration: 0.58 }, { note: "D#5", duration: 0.58 }, { note: "D#5", duration: 0.58 },
+
+      { note: "C#5", duration: .85 }, { note: "C#5", duration: 0.58 }, { note: "C#5", duration: 0.58 }, { note: "C#5", duration: 0.58 },
+
+      { note: "A4", duration: 0.72 }, { note: "A4", duration: 0.58 }, { note: "G#4", duration: 1.0 },
+
+      { note: "E5", duration: 1.05 }, { note: "E5", duration: 1.25 }
     ];
 
     const noteFreq = {
@@ -783,9 +792,15 @@
       lowpass.frequency.setValueAtTime(2200, now);
       lowpass.Q.setValueAtTime(1, now);
 
+      const attackEnd = now + 0.02;
+      const decayEnd = now + 0.12;
+      const sustainLevel = 0.14;
+      const releaseStart = now + Math.max(0.18, duration - 0.18);
+
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.28, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.28, attackEnd);
+      gain.gain.exponentialRampToValueAtTime(sustainLevel, decayEnd);
+      gain.gain.setValueAtTime(sustainLevel, releaseStart);
       gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       osc1.connect(lowpass);
@@ -998,6 +1013,17 @@
       return footX >= bounds.left && footX <= bounds.right;
     }
 
+    function getCurrentJumpDuration(selectedNote) {
+      if ((state.mode === "guided" || state.mode === "manual-guided") && state.targetNote) {
+        const step = runawayChart[state.currentStep];
+        if (step && step.note === selectedNote) {
+          return step.duration || 0.55;
+        }
+      }
+
+      return 0.55;
+    }
+
     function runAnimationFlag() {
       const moving = state.runningLeft || state.runningRight;
       playerEl.classList.toggle("running", moving && !state.isJumping);
@@ -1025,7 +1051,8 @@
       }, 480);
 
       setTimeout(() => {
-        playNote(selectedNote);
+        const duration = getCurrentJumpDuration(selectedNote);
+        playNote(selectedNote, duration);
         evaluateJump(selectedNote);
       }, 230);
     }
