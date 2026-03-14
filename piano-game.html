@@ -617,6 +617,10 @@
     </div>
   </div>
 
+  <audio id="winAudio" preload="auto" playsinline webkit-playsinline style="display:none;">
+    <source src="runaway-win.mp4" type="audio/mp4" />
+  </audio>
+
   <script>
     const FOOT_OFFSET_RATIO = 0.38;
 
@@ -646,19 +650,6 @@
       { note: "E5" }, { note: "E5" }
     ];
 
-    const winSequence = [
-      { note: "G#4", duration: 0.26, gap: 130 },
-      { note: "G#4", duration: 0.26, gap: 130 },
-      { note: "E5", duration: 0.26, gap: 130 },
-      { note: "B4", duration: 0.26, gap: 130 },
-      { note: "G#4", duration: 0.26, gap: 130 },
-      { note: "G#4", duration: 0.26, gap: 130 },
-      { note: "E5", duration: 0.26, gap: 130 },
-      { note: "B4", duration: 0.26, gap: 130 },
-      { note: "G#4", duration: 0.26, gap: 130 },
-      { note: "G#4", duration: 0.32, gap: 180 }
-    ];
-
     const noteFreq = {
       "C4": 261.63, "C#4": 277.18, "D4": 293.66, "D#4": 311.13, "E4": 329.63,
       "F4": 349.23, "F#4": 369.99, "G4": 392.00, "G#4": 415.30, "A4": 440.00,
@@ -671,6 +662,7 @@
     const keybedEl = document.getElementById("keybed");
     const playerEl = document.getElementById("player");
     const landingMarkerEl = document.getElementById("landingMarker");
+    const winAudio = document.getElementById("winAudio");
 
     const modeLabel = document.getElementById("modeLabel");
     const targetLabel = document.getElementById("targetLabel");
@@ -697,7 +689,8 @@
       currentStep: 0,
       acceptedWindow: false,
       chartTimer: null,
-      audioReady: false
+      audioReady: false,
+      mediaUnlocked: false
     };
 
     const keyMap = new Map();
@@ -723,6 +716,35 @@
       state.audioReady = true;
     }
 
+    function ensureMediaUnlocked() {
+      ensureAudio();
+
+      if (winAudio) {
+        const unlockAttempt = () => {
+          winAudio.muted = true;
+          winAudio.currentTime = 0;
+
+          const playPromise = winAudio.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                winAudio.pause();
+                winAudio.currentTime = 0;
+                winAudio.muted = false;
+                state.mediaUnlocked = true;
+              })
+              .catch((err) => {
+                console.log("Media unlock blocked:", err);
+              });
+          }
+        };
+
+        if (!state.mediaUnlocked) {
+          unlockAttempt();
+        }
+      }
+    }
+
     function unlockAudio() {
       ensureAudio();
       if (!audioContext) return;
@@ -737,6 +759,8 @@
       } catch (err) {
         console.log("Audio unlock start error:", err);
       }
+
+      ensureMediaUnlocked();
     }
 
     function playNote(note, duration = 0.55) {
@@ -775,25 +799,41 @@
       osc2.stop(now + duration + 0.05);
     }
 
-    function playWinSequence() {
-      ensureAudio();
-      let delay = 0;
+    function stopWinAudio() {
+      if (!winAudio) return;
+      try {
+        winAudio.pause();
+        winAudio.currentTime = 0;
+      } catch (err) {
+        console.log("Win audio stop error:", err);
+      }
+    }
 
-      winSequence.forEach((step, index) => {
-        window.setTimeout(() => {
-          playNote(step.note, step.duration);
-          const el = keyMap.get(step.note);
-          if (el) {
-            el.classList.add("active");
-            window.setTimeout(() => el.classList.remove("active"), Math.max(180, step.gap));
-          }
-          if (index === winSequence.length - 1) {
-            setStatus("You win! Encore riff played.");
-          }
-        }, delay);
+    function playWinAudio() {
+      if (!winAudio) return;
 
-        delay += step.gap;
-      });
+      try {
+        stopWinAudio();
+        winAudio.muted = false;
+        winAudio.volume = 1;
+
+        const playPromise = winAudio.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setStatus("You win! Runaway clip playing.");
+            })
+            .catch((err) => {
+              console.log("Win audio play blocked:", err);
+              setStatus("You win!");
+            });
+        } else {
+          setStatus("You win!");
+        }
+      } catch (err) {
+        console.log("Win audio error:", err);
+        setStatus("You win!");
+      }
     }
 
     function buildKeys() {
@@ -1055,11 +1095,11 @@
       state.acceptedWindow = false;
       setMode("idle");
       setStatus("Sequence complete");
-      playWinSequence();
+      playWinAudio();
     }
 
     function startGuidedMode() {
-      ensureAudio();
+      unlockAudio();
       resetGame(false);
       setMode("guided");
       state.currentStep = 0;
@@ -1069,7 +1109,7 @@
     }
 
     function startManualGuidedMode() {
-      ensureAudio();
+      unlockAudio();
       resetGame(false);
       setMode("manual-guided");
       state.currentStep = 0;
@@ -1079,7 +1119,7 @@
     }
 
     function startPracticeMode() {
-      ensureAudio();
+      unlockAudio();
       resetGame(false);
       setMode("practice");
       setTarget("E5");
@@ -1091,6 +1131,7 @@
 
     function resetGame(updateMode = true) {
       window.clearTimeout(state.chartTimer);
+      stopWinAudio();
       state.currentStep = 0;
       state.acceptedWindow = false;
       clearKeyStates();
@@ -1134,6 +1175,7 @@
       }
       if (e.code === "Space") {
         e.preventDefault();
+        unlockAudio();
         handleJumpAction();
       }
     });
