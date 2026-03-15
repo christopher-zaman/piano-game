@@ -298,17 +298,22 @@
       justify-content: center;
       transform: translateY(0);
       transform-origin: center bottom;
+      overflow: visible;
     }
 
-    .player .body img {
+    .player .sprite {
       width: 100%;
       height: 100%;
-      object-fit: contain;
-      display: block;
-      pointer-events: none;
+      background-image: url("assets/character-sprite.png");
+      background-repeat: no-repeat;
+      background-size: 400% 200%;
+      background-position: 0% 0%;
       filter: drop-shadow(0 8px 10px rgba(0,0,0,.25));
-      image-rendering: auto;
       transform-origin: center bottom;
+    }
+
+    .player.facing-left .sprite {
+      transform: scaleX(-1);
     }
 
     .landing-marker {
@@ -333,14 +338,6 @@
       animation: runShadow .16s linear infinite alternate;
     }
 
-    .player.running.running-left .body img {
-      animation: runSwingLeft .16s linear infinite alternate;
-    }
-
-    .player.running.running-right .body img {
-      animation: runSwingRight .16s linear infinite alternate;
-    }
-
     .player.jumping {
       animation: playerJump 0.48s ease-in-out forwards;
     }
@@ -356,16 +353,6 @@
     @keyframes runBounce {
       from { transform: translateY(0px); }
       to   { transform: translateY(-5px); }
-    }
-
-    @keyframes runSwingLeft {
-      from { transform: rotate(-5deg) scaleX(-1) scaleY(0.98); }
-      to   { transform: rotate(2deg) scaleX(-1) scaleY(1.02); }
-    }
-
-    @keyframes runSwingRight {
-      from { transform: rotate(-2deg) scaleY(0.98); }
-      to   { transform: rotate(5deg) scaleY(1.02); }
     }
 
     @keyframes runShadow {
@@ -619,7 +606,7 @@
 
         <div class="player" id="player" aria-label="player character">
           <div class="body">
-            <img alt="character sprite" src="character.webp" />
+            <div class="sprite" id="playerSprite"></div>
           </div>
           <div class="shadow"></div>
           <div class="landing-marker" id="landingMarker"></div>
@@ -650,8 +637,17 @@
     <source src="runaway-win.mp4" type="audio/mp4" />
   </audio>
 
+  <audio id="missAudio" preload="auto" playsinline webkit-playsinline style="display:none;">
+    <source src="assets/ooh-wee.mp4" type="audio/mp4" />
+  </audio>
+
   <script>
     const FOOT_OFFSET_RATIO = 0.38;
+
+    const SPRITE_COLS = 4;
+    const SPRITE_ROWS = 2;
+    const SPRITE_TOTAL_FRAMES = 8;
+    const WALK_FRAME_INTERVAL = 90;
 
     const whiteNotes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5"];
 
@@ -722,8 +718,10 @@
     const blackKeysEl = document.getElementById("blackKeys");
     const keybedEl = document.getElementById("keybed");
     const playerEl = document.getElementById("player");
+    const playerSpriteEl = document.getElementById("playerSprite");
     const landingMarkerEl = document.getElementById("landingMarker");
     const winAudio = document.getElementById("winAudio");
+    const missAudio = document.getElementById("missAudio");
 
     const modeLabel = document.getElementById("modeLabel");
     const targetLabel = document.getElementById("targetLabel");
@@ -752,7 +750,9 @@
       chartTimer: null,
       audioReady: false,
       mediaUnlocked: false,
-      facing: "right"
+      facing: "right",
+      walkFrame: 0,
+      lastWalkFrameTime: 0
     };
 
     const keyMap = new Map();
@@ -764,6 +764,17 @@
 
     function getPlayerFootX() {
       return state.playerX + (playerEl.offsetWidth * FOOT_OFFSET_RATIO);
+    }
+
+    function setSpriteFrame(frameIndex) {
+      const clamped = ((frameIndex % SPRITE_TOTAL_FRAMES) + SPRITE_TOTAL_FRAMES) % SPRITE_TOTAL_FRAMES;
+      const col = clamped % SPRITE_COLS;
+      const row = Math.floor(clamped / SPRITE_COLS);
+
+      const x = (col / (SPRITE_COLS - 1)) * 100;
+      const y = (row / (SPRITE_ROWS - 1)) * 100;
+
+      playerSpriteEl.style.backgroundPosition = `${x}% ${y}%`;
     }
 
     function ensureAudio() {
@@ -779,6 +790,7 @@
     }
 
     function unlockSingleHtmlAudio(audio) {
+      if (!audio) return;
       try {
         audio.muted = true;
         audio.currentTime = 0;
@@ -799,6 +811,7 @@
       if (state.mediaUnlocked) return;
 
       unlockSingleHtmlAudio(winAudio);
+      unlockSingleHtmlAudio(missAudio);
       Object.values(sampleLibrary).forEach(unlockSingleHtmlAudio);
 
       state.mediaUnlocked = true;
@@ -883,6 +896,26 @@
         }
       } catch (err) {
         console.log(`Sample playback error for ${step.sample}:`, err);
+      }
+    }
+
+    function playMissAudio() {
+      if (!missAudio) return;
+
+      try {
+        missAudio.pause();
+        missAudio.currentTime = 0;
+        missAudio.muted = false;
+        missAudio.volume = 1;
+
+        const playPromise = missAudio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.log("Miss audio play blocked:", err);
+          });
+        }
+      } catch (err) {
+        console.log("Miss audio error:", err);
       }
     }
 
@@ -1085,29 +1118,41 @@
       return footX >= bounds.left && footX <= bounds.right;
     }
 
-    function runAnimationFlag() {
+    function updateWalkSprite(timestamp) {
+      const moving = (state.runningLeft || state.runningRight) && !state.isJumping;
+
+      if (moving) {
+        if (!state.lastWalkFrameTime) state.lastWalkFrameTime = timestamp;
+
+        if (timestamp - state.lastWalkFrameTime >= WALK_FRAME_INTERVAL) {
+          state.walkFrame = (state.walkFrame + 1) % SPRITE_TOTAL_FRAMES;
+          state.lastWalkFrameTime = timestamp;
+        }
+      } else {
+        state.walkFrame = 0;
+        state.lastWalkFrameTime = 0;
+      }
+
+      setSpriteFrame(state.walkFrame);
+    }
+
+    function runAnimationFlag(timestamp) {
       const moving = state.runningLeft || state.runningRight;
 
       if (state.runningLeft) state.facing = "left";
       if (state.runningRight) state.facing = "right";
 
       playerEl.classList.toggle("running", moving && !state.isJumping);
-      playerEl.classList.toggle("running-left", state.runningLeft && !state.isJumping);
-      playerEl.classList.toggle("running-right", state.runningRight && !state.isJumping);
+      playerEl.classList.toggle("facing-left", state.facing === "left");
 
-      const img = playerEl.querySelector(".body img");
-      if (!moving && !state.isJumping && img) {
-        img.style.transform = state.facing === "left" ? "scaleX(-1)" : "scaleX(1)";
-      } else if (moving && img) {
-        img.style.transform = "";
-      }
+      updateWalkSprite(timestamp);
     }
 
-    function gameLoop() {
+    function gameLoop(timestamp = 0) {
       if (state.runningLeft) state.playerX -= state.playerSpeed;
       if (state.runningRight) state.playerX += state.playerSpeed;
       clampPlayer();
-      runAnimationFlag();
+      runAnimationFlag(timestamp);
       requestAnimationFrame(gameLoop);
     }
 
@@ -1117,7 +1162,7 @@
       ensureAudio();
       state.isJumping = true;
       playerEl.classList.add("jumping");
-      playerEl.classList.remove("running", "running-left", "running-right");
+      playerEl.classList.remove("running");
 
       setTimeout(() => {
         playerEl.classList.remove("jumping");
@@ -1147,6 +1192,7 @@
         advanceStep();
       } else {
         pulseActive(selectedNote, "missed");
+        playMissAudio();
 
         if (state.targetNote && keyMap.has(state.targetNote)) {
           keyMap.get(state.targetNote).classList.add("missed");
@@ -1242,11 +1288,12 @@
       if (updateMode) setMode("idle");
       state.playerX = 80;
       state.facing = "right";
+      state.walkFrame = 0;
+      state.lastWalkFrameTime = 0;
       clampPlayer();
       updateStep();
-
-      const img = playerEl.querySelector(".body img");
-      if (img) img.style.transform = "scaleX(1)";
+      setSpriteFrame(0);
+      playerEl.classList.remove("facing-left");
     }
 
     function handleJumpAction() {
@@ -1351,7 +1398,12 @@
 
     buildKeys();
     updateLandingMarker();
-    resetGame(true);
+    resetGame(false);
+    setMode("guided");
+    state.currentStep = 0;
+    updateStep();
+    setStatus("Auto Guided ready");
+    scheduleCurrentTarget();
     gameLoop();
   </script>
 </body>
