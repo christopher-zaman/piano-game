@@ -579,7 +579,7 @@
     <div class="topbar">
       <div class="title-wrap">
         <h1>Piano Jump: Guided Melody Prototype</h1>
-        <div class="subtitle">Predetermined target keys guide the player through a simple “Runaway”-style note pattern.</div>
+        <div class="subtitle">Guided keys now trigger your cropped instrumental samples in the exact sequence you provided.</div>
       </div>
 
       <div class="controls">
@@ -666,26 +666,31 @@
       { note: "F#5", afterWhiteIndex: 10 }
     ];
 
-    const runawayChart = [
-      { note: "E5", duration: .75 }, { note: "E5", duration: 0.58 }, { note: "E5", duration: 0.58 },
+    const sequenceChart = [
+      { note: "E5", sample: "e-3-times-first.mp4" },
+      { note: "E5", sample: "e-3-times-first.mp4" },
+      { note: "E5", sample: "e-3-times-first.mp4" },
 
-      { note: "D#5", duration: 0.92 }, { note: "D#5", duration: 0.58 }, { note: "D#5", duration: 0.58 }, { note: "D#5", duration: 0.58 },
+      { note: "E5", sample: "e-1-time-second.mp4" },
 
-      { note: "C#5", duration: 0.9 }, { note: "C#5", duration: 0.58 }, { note: "C#5", duration: 0.58 },
+      { note: "D#5", sample: "d-sharp-3-times-third.mp4" },
+      { note: "D#5", sample: "d-sharp-3-times-third.mp4" },
+      { note: "D#5", sample: "d-sharp-3-times-third.mp4" },
 
-      { note: "A4", duration: 0.72 }, { note: "A4", duration: 0.58 }, { note: "G#4", duration: 1.0 },
+      { note: "D5", sample: "d-1-time-fourth.mp4" },
 
-      { note: "E5", duration: 1.2 }, { note: "E5", duration: 0.58 }, { note: "B4", duration: 0.82 },
+      { note: "C#5", sample: "c-sharp-3-times-fifth.mp4" },
+      { note: "C#5", sample: "c-sharp-3-times-fifth.mp4" },
+      { note: "C#5", sample: "c-sharp-3-times-fifth.mp4" },
 
-      { note: "E5", duration: 1.05 }, { note: "E5", duration: 0.58 }, { note: "E5", duration: 0.58 },
+      { note: "C5", sample: "c-1-time-sixth.mp4" },
 
-      { note: "D#5", duration: 0.72 }, { note: "D#5", duration: 0.58 }, { note: "D#5", duration: 0.58 }, { note: "D#5", duration: 0.58 },
+      { note: "A4", sample: "a-2-times-seventh.mp4" },
+      { note: "A4", sample: "a-2-times-seventh.mp4" },
 
-      { note: "C#5", duration: .85 }, { note: "C#5", duration: 0.58 }, { note: "C#5", duration: 0.58 }, { note: "C#5", duration: 0.58 },
+      { note: "G#4", sample: "g-sharp-1-time-eight.mp4" },
 
-      { note: "A4", duration: 0.72 }, { note: "A4", duration: 0.58 }, { note: "G#4", duration: 1.0 },
-
-      { note: "E5", duration: 1.05 }, { note: "E5", duration: 1.25 }
+      { note: "E5", sample: "e-1-time-ninth.mp4" }
     ];
 
     const noteFreq = {
@@ -694,6 +699,24 @@
       "A#4": 466.16, "B4": 493.88, "C5": 523.25, "C#5": 554.37, "D5": 587.33,
       "D#5": 622.25, "E5": 659.25, "F5": 698.46, "F#5": 739.99, "G5": 783.99
     };
+
+    const sampleLibrary = {};
+    [
+      "e-3-times-first.mp4",
+      "e-1-time-second.mp4",
+      "d-sharp-3-times-third.mp4",
+      "d-1-time-fourth.mp4",
+      "c-sharp-3-times-fifth.mp4",
+      "c-1-time-sixth.mp4",
+      "a-2-times-seventh.mp4",
+      "g-sharp-1-time-eight.mp4",
+      "e-1-time-ninth.mp4"
+    ].forEach((file) => {
+      const audio = new Audio(`assets/${file}`);
+      audio.preload = "auto";
+      audio.playsInline = true;
+      sampleLibrary[file] = audio;
+    });
 
     const whiteKeysEl = document.getElementById("whiteKeys");
     const blackKeysEl = document.getElementById("blackKeys");
@@ -755,33 +778,30 @@
       state.audioReady = true;
     }
 
-    function ensureMediaUnlocked() {
-      ensureAudio();
-
-      if (winAudio) {
-        const unlockAttempt = () => {
-          winAudio.muted = true;
-          winAudio.currentTime = 0;
-
-          const playPromise = winAudio.play();
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => {
-                winAudio.pause();
-                winAudio.currentTime = 0;
-                winAudio.muted = false;
-                state.mediaUnlocked = true;
-              })
-              .catch((err) => {
-                console.log("Media unlock blocked:", err);
-              });
-          }
-        };
-
-        if (!state.mediaUnlocked) {
-          unlockAttempt();
+    function unlockSingleHtmlAudio(audio) {
+      try {
+        audio.muted = true;
+        audio.currentTime = 0;
+        const p = audio.play();
+        if (p !== undefined) {
+          p.then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+            audio.muted = false;
+          }).catch(() => {});
         }
+      } catch (err) {
+        console.log("HTML audio unlock error:", err);
       }
+    }
+
+    function ensureMediaUnlocked() {
+      if (state.mediaUnlocked) return;
+
+      unlockSingleHtmlAudio(winAudio);
+      Object.values(sampleLibrary).forEach(unlockSingleHtmlAudio);
+
+      state.mediaUnlocked = true;
     }
 
     function unlockAudio() {
@@ -842,6 +862,28 @@
       osc2.start(now);
       osc1.stop(now + duration + 0.05);
       osc2.stop(now + duration + 0.05);
+    }
+
+    function playStepSample(stepIndex) {
+      const step = sequenceChart[stepIndex];
+      if (!step) return;
+
+      const base = sampleLibrary[step.sample];
+      if (!base) return;
+
+      try {
+        const clone = base.cloneNode();
+        clone.volume = 1;
+        clone.playsInline = true;
+        const p = clone.play();
+        if (p !== undefined) {
+          p.catch((err) => {
+            console.log(`Sample play blocked for ${step.sample}:`, err);
+          });
+        }
+      } catch (err) {
+        console.log(`Sample playback error for ${step.sample}:`, err);
+      }
     }
 
     function stopWinAudio() {
@@ -935,7 +977,7 @@
     function updateStep() {
       const total =
         state.mode === "guided" || state.mode === "manual-guided"
-          ? runawayChart.length
+          ? sequenceChart.length
           : 0;
 
       if (!total) {
@@ -1043,17 +1085,6 @@
       return footX >= bounds.left && footX <= bounds.right;
     }
 
-    function getCurrentJumpDuration(selectedNote) {
-      if ((state.mode === "guided" || state.mode === "manual-guided") && state.targetNote) {
-        const step = runawayChart[state.currentStep];
-        if (step && step.note === selectedNote) {
-          return step.duration || 0.55;
-        }
-      }
-
-      return 0.55;
-    }
-
     function runAnimationFlag() {
       const moving = state.runningLeft || state.runningRight;
 
@@ -1094,14 +1125,13 @@
       }, 480);
 
       setTimeout(() => {
-        const duration = getCurrentJumpDuration(selectedNote);
-        playNote(selectedNote, duration);
         evaluateJump(selectedNote);
       }, 230);
     }
 
     function evaluateJump(selectedNote) {
       if (state.mode === "practice") {
+        playNote(selectedNote, 0.55);
         pulseActive(selectedNote, "active");
         setStatus(`Played ${selectedNote}`);
         return;
@@ -1111,6 +1141,7 @@
 
       if (selectedNote === state.targetNote && state.acceptedWindow) {
         pulseActive(selectedNote, "active");
+        playStepSample(state.currentStep);
         state.acceptedWindow = false;
         setStatus(`Correct: ${selectedNote}`);
         advanceStep();
@@ -1144,7 +1175,7 @@
     }
 
     function scheduleCurrentTarget() {
-      const step = runawayChart[state.currentStep];
+      const step = sequenceChart[state.currentStep];
       if (!step) return finishGuidedMode();
       setTarget(step.note);
       setStatus(`Jump on ${step.note}`);
@@ -1154,7 +1185,7 @@
     function advanceStep() {
       state.currentStep += 1;
       updateStep();
-      if (state.currentStep >= runawayChart.length) return finishGuidedMode();
+      if (state.currentStep >= sequenceChart.length) return finishGuidedMode();
       window.clearTimeout(state.chartTimer);
       state.chartTimer = window.setTimeout(scheduleCurrentTarget, 260);
     }
